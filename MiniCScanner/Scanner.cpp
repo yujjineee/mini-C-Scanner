@@ -10,8 +10,7 @@
 
 #include "Scanner.h"
 
-extern FILE *sourceFile;                       // miniC source program
-
+extern FILE* sourceFile;                       // miniC source program
 
 int superLetter(char ch); // isalpha(ch) : ch가 알파벳이거나 _이면 return 1
 int superLetterOrDigit(char ch); // isalnum(ch) : ch가 숫자거나 알파벳이거나 _이면 return 1
@@ -19,8 +18,7 @@ int getNumber(char firstCharacter); // 10진수 숫자로 변환하는 함수
 int hexValue(char ch); // 16진수 문자(char)를 10진수 숫자(int)값으로 가져오는 함수
 void lexicalError(int n); // 오류 출력 함수
 
-
-char *tokenName[] = {
+char* tokenName[] = {
 	"!",        "!=",      "%",       "%=",     "%ident",   "%number",
 	/* 0          1           2         3          4          5        */
 	"&&",       "(",       ")",       "*",      "*=",       "+",
@@ -39,12 +37,12 @@ char *tokenName[] = {
 	/* 37         38         39         40         41          42      */
 	"while",    "{",        "||",       "}",	 "char",	"double",
 	/* 43        44         45           46         47         48      */
-	"for",		"do",		"goto",	   "switch", "case",	"break", 
+	"for",		"do",		"goto",	   "switch", "case",	"break",
 	/* 49                                                              */
 	"default"
 };
 
-char *keyword[NO_KEYWORD] = {
+char* keyword[NO_KEYWORD] = {
 	"const",  "else",    "if",    "int",    "return",  "void",    "while",
 	"char", "double", "for", "do", "goto", "switch", "case", "break", "default"
 };
@@ -60,26 +58,42 @@ struct tokenType scanner()
 	int i, index;
 	char ch, id[ID_LENGTH];
 
-
+	token.value.line = _line;
+	token.value.col = _col;
 	token.number = tnull;
 
 	do {
-		while (isspace(ch = fgetc(sourceFile)));	// state 1: skip blanks
-		
+		while (isspace(ch = fgetc(sourceFile))) {	// state 1: skip blanks
 		// isspace(int n); -> n이 공백인지 아닌지 판단, 공백이 아니면 0 return
 		// 즉, while문은 sourceFile에서 받아온 문자가 공백이 아닌 동안 반복
 		// " ", "\n", "\t", "\v", "\f", "\r"을 공백으로 판단
 		// -> 단어마다, 문장마다 새롭게 인식
-		
+			if (ch == '\n') {
+				printf("엔터라능 >< \n");
+
+				_col = 1; // 개행한 다음은 무조건 첫번째 글자
+				_line++;  // 엔터면 _line + 1
+			}
+
+			else _col++;
+
+		}
+
+
 		if (superLetter(ch)) { // identifier or keyword
 
 			// 단어 시작 ch가 알파벳이거나 _일 때
 
 			i = 0;
+			token.value.line = _line;
+			token.value.col = _col;
+
 			do {
 				if (i < ID_LENGTH) id[i++] = ch;
 				ch = fgetc(sourceFile);
+				_col++;
 			} while (superLetterOrDigit(ch));
+
 			// 이어진 문자가 숫자, 알파벳, _이고, 단어 길이가 12 미만
 			// 문자 받아와서 id[]에 저장
 
@@ -88,20 +102,21 @@ struct tokenType scanner()
 
 			ungetc(ch, sourceFile);  //  retract : 되돌림
 									 // find the identifier in the keyword table
-			
+
 			for (index = 0; index < NO_KEYWORD; index++)
 				if (!strcmp(id, keyword[index])) break;
+
 			// 받아온 id를 keyword 속 토큰과 비교
 			// 같은 토큰 찾으면 for 문 탈출
 
 			if (index < NO_KEYWORD)    // found, keyword exit
 				token.number = tnum[index];
 			// 키워드 찾아서 해당 토큰 번호를 struct의 number에 넣어줌
-			
+
 			else {                     // not found, identifier exit
 				token.number = tident;
 				strcpy_s(token.value.id, id);
-			} 
+			}
 			// 토큰 목록에 없으면 number에 tident(== 4), value.id에 단어 복사
 		}  // end of identifier or keyword
 		// identifier나 단어 인식 완료
@@ -109,6 +124,8 @@ struct tokenType scanner()
 		else if (isdigit(ch)) {  // number
 			token.number = tnumber;
 			token.value.num = getNumber(ch);
+			token.value.line = _line;
+			token.value.col = _col;
 		}
 		// 단어 시작이 숫자인 경우
 		// 10진수 형식으로 바꿔서
@@ -123,14 +140,33 @@ struct tokenType scanner()
 
 		case '/':
 			ch = fgetc(sourceFile);
-			if (ch == '*')			// text comment
+			_col++;
+
+			// == text comment: 문단 주석 ==
+			if (ch == '*')
 				do {
-					while (ch != '*') ch = fgetc(sourceFile);
+					while (ch != '*') {
+						ch = fgetc(sourceFile);
+						if (ch == '\n') {
+							_col = 1;
+							_line++;
+						}
+						else _col++;
+					}
 					ch = fgetc(sourceFile);
+					_col++;
 				} while (ch != '/');
-			else if (ch == '/')		// line comment
-				while (fgetc(sourceFile) != '\n');
-			else if (ch == '=')  token.number = tdivAssign;
+
+				// == line comment: 줄 주석 ==
+			else if (ch == '/')
+				while (fgetc(sourceFile) != '\n')
+					_col++;
+
+			// == '/=' 나누기 ==
+			else if (ch == '=')
+				token.number = tdivAssign;
+
+			// == '/' 한 개 ==
 			else {
 				token.number = tdiv;
 				ungetc(ch, sourceFile); // retract
@@ -139,6 +175,9 @@ struct tokenType scanner()
 
 		case '!':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '=')  token.number = tnotequ;
 			else {
 				token.number = tnot;
@@ -148,6 +187,9 @@ struct tokenType scanner()
 
 		case '%':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '=') {
 				token.number = tremAssign;
 			}
@@ -159,6 +201,9 @@ struct tokenType scanner()
 
 		case '&':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '&')  token.number = tand;
 			else {
 				lexicalError(2);
@@ -168,6 +213,9 @@ struct tokenType scanner()
 
 		case '*':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '=')  token.number = tmulAssign;
 			else {
 				token.number = tmul;
@@ -177,6 +225,9 @@ struct tokenType scanner()
 
 		case '+':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '+')  token.number = tinc;
 			else if (ch == '=') token.number = taddAssign;
 			else {
@@ -187,6 +238,9 @@ struct tokenType scanner()
 
 		case '-':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '-')  token.number = tdec;
 			else if (ch == '=') token.number = tsubAssign;
 			else {
@@ -197,6 +251,9 @@ struct tokenType scanner()
 
 		case '<':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '=') token.number = tlesse;
 			else {
 				token.number = tless;
@@ -206,6 +263,9 @@ struct tokenType scanner()
 
 		case '=':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '=')  token.number = tequal;
 			else {
 				token.number = tassign;
@@ -215,6 +275,9 @@ struct tokenType scanner()
 
 		case '>':
 			ch = fgetc(sourceFile);
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			if (ch == '=') token.number = tgreate;
 			else {
 				token.number = tgreat;
@@ -224,23 +287,95 @@ struct tokenType scanner()
 
 		case '|':
 			ch = fgetc(sourceFile);
-			if (ch == '|')  token.number = tor;
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
+			if (ch == '|')
+				token.number = tor;
 			else {
 				lexicalError(3);
 				ungetc(ch, sourceFile);  // retract
 			}
+
 			break;
 
-		case '(': token.number = tlparen;         break;
-		case ')': token.number = trparen;         break;
-		case ',': token.number = tcomma;          break;
-		case ';': token.number = tsemicolon;      break;
-		case '[': token.number = tlbracket;       break;
-		case ']': token.number = trbracket;       break;
-		case '{': token.number = tlbrace;         break;
-		case '}': token.number = trbrace;         break;
-		case EOF: token.number = teof;            break;
-		case ':': token.number = tcol;			  break;
+
+		case '(':
+			token.number = tlparen,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case ')':
+			token.number = trparen,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case ',':
+			token.number = tcomma,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case ';':
+			token.number = tsemicolon,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case '[':
+			token.number = tlbracket,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case ']':
+			token.number = trbracket,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case '{':
+			token.number = tlbrace,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case '}':
+			token.number = trbrace,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case ':':
+			token.number = tcol,
+				token.value.line = _line,
+				token.value.col = _col,
+				strcpy_s(token.value.symbol, "("),
+				_col++;
+			break;
+
+		case EOF:
+			token.number = teof;
+			break;
+
 		default: {
 			printf("Current character : %c", ch);
 			lexicalError(4);
@@ -295,18 +430,22 @@ int getNumber(char firstCharacter)
 	if (firstCharacter == '0') {
 		// 숫자 표기의 첫 문자로 0이 들어왔을 때: 16진수, 8진수, 그냥 0의 경우
 		ch = fgetc(sourceFile); // 다음 문자 가져옴
+		_col++;
+
 		if ((ch == 'X') || (ch == 'x')) { // hexa decimal : 0X__형식
 			while ((value = hexValue(ch = fgetc(sourceFile))) != -1)
-				num = 16 * num + value;
+				_col++;
+			num = 16 * num + value;
 		}
-			// 다음 문자를 가져와서 hexValue에 넣은 값 value
-			// 16진수 문자가 더이상 나오지 않을 때까지 반복
-			// 10진수 값 num으로 변환
+		// 다음 문자를 가져와서 hexValue에 넣은 값 value
+		// 16진수 문자가 더이상 나오지 않을 때까지 반복
+		// 10진수 값 num으로 변환
 
 		else if ((ch >= '0') && (ch <= '7'))	// octal : 0___ 형식
 			do {
 				num = 8 * num + (int)(ch - '0');
 				ch = fgetc(sourceFile);
+				_col++;
 			} while ((ch >= '0') && (ch <= '7'));
 			// 8진수가 끝날 때까지 반복
 			// 10진수 값 num으로 변환
@@ -318,6 +457,7 @@ int getNumber(char firstCharacter)
 		do {
 			num = 10 * num + (int)(ch - '0');
 			ch = fgetc(sourceFile);
+			_col++;
 		} while (isdigit(ch));
 	}
 	// isdigit(int n) -> 아스키 코드로 변환된 n이 0~9까지의 숫자이면 return 1
@@ -345,13 +485,13 @@ int hexValue(char ch)
 
 void printToken(struct tokenType token)
 {
-	if (token.number == tident)
-		printf("number: %d, value: %s\n", token.number, token.value.id);
-	else if (token.number == tnumber)
-		printf("number: %d, value: %d\n", token.number, token.value.num);
+	if (token.number == tident) // 글자
+		printf("number: %d, value: %s, line number: %d, col number: %d\n", token.number, token.value.id, token.value.line, token.value.col);
+	else if (token.number == tnumber) // 숫자
+		printf("number: %d, value: %d, line number: %d, col number: %d\n", token.number, token.value.num, token.value.line, token.value.col);
 	// else if (token.number == tdocuCom || token.number == tsingleCom)
-	// printf("number: %d, value: %s\n", token.number, token.value.comment);
-	else
-		printf("number: %d(%s)\n", token.number, tokenName[token.number]);
+	// printf("number: %d, value: %s, line number: %d, col number: %d\n", token.number, token.value.comment, token.value.line, token.value.col);
+	else // 그 외
+		printf("number: %d(%s), line number: %d, col number: %d\n", token.number, tokenName[token.number], token.value.line, token.value.col);
 
 }

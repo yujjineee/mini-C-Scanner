@@ -10,6 +10,9 @@
 #define NO_KEYWORD 16
 #define ID_LENGTH 12
 
+static int _line = 1;
+static int _col = 1;
+
 struct tokenType {
 	int number;
 	union {

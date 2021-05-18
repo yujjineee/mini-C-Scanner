@@ -7,7 +7,6 @@
 
 void icg_error(int n);
 
-
 FILE *astFile;                          // AST file
 FILE *sourceFile;                       // miniC source program
 FILE *ucodeFile;                        // ucode file
