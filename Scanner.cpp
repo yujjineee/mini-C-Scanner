@@ -59,8 +59,6 @@ struct tokenType scanner()
 	int i, index;
 	char ch, id[ID_LENGTH];
 
-	token.value.line = _line;
-	token.value.col = _col;
 	token.number = tnull;
 
 	do {
@@ -71,7 +69,7 @@ struct tokenType scanner()
 		// -> 단어마다, 문장마다 새롭게 인식
 
 			if (ch == '\n') {
-				printf("엔터다 >< \n");
+				// printf("엔터나오니? >< \n");
 				_line++;  // 엔터면 _line + 1
 				_col = 1;
 			}
@@ -79,12 +77,13 @@ struct tokenType scanner()
 		} // 공백 연속으로 모두 제거
 
 		if (superLetter(ch)) { // identifier or keyword
-
-			// 단어 시작 ch가 알파벳이거나 _일 때
-
-			i = 0;
+		// 단어 시작 ch가 알파벳이거나 _일 때
 			token.value.line = _line;
 			token.value.col = _col;
+			
+
+			i = 0;
+
 
 			do {
 				if (i < ID_LENGTH) id[i++] = ch;
@@ -109,15 +108,18 @@ struct tokenType scanner()
 
 			if (index < NO_KEYWORD)    // found, keyword exit
 				token.number = tnum[index];
+
 			// 키워드 찾아서 해당 토큰 번호를 struct의 number에 넣어줌
 			
 			else {                     // not found, identifier exit
 				token.number = tident;
 				strcpy_s(token.value.id, id);
 			} 
+
 			// 토큰 목록에 없으면 number에 tident(== 4), value.id에 단어 복사
 		}  // end of identifier or keyword
 		// identifier나 단어 인식 완료
+
 
 		// 숫자인 경우
 		else if (isdigit(ch)) {  // number
@@ -153,6 +155,10 @@ struct tokenType scanner()
 						txt[i] = ch;
 						i++;
 						_col++;
+						if (ch == '\n') {
+							_col = 1;
+							_line++;
+						}
 					}
 
 					txt[i] = '\0';
@@ -189,6 +195,9 @@ struct tokenType scanner()
 			// == '/' 한 개 ==
 			else {
 				token.number = tdiv;
+				token.value.line = _line;
+				token.value.col = _col;
+				_col++;
 				ungetc(ch, sourceFile); // retract
 			}
 			break;
@@ -312,7 +321,9 @@ struct tokenType scanner()
 			token.value.line = _line;
 			token.value.col = _col;
 			_col++;
-			if (ch == '=') token.number = tlesse;
+			if (ch == '=') {
+				token.number = tlesse; 
+			}
 			else {
 				token.number = tless;
 				ungetc(ch, sourceFile);  // retract
@@ -363,83 +374,71 @@ struct tokenType scanner()
 			}
 			else {
 				lexicalError(3);
-				token.value.line = _line;
-				token.value.col = _col;
-				_col++;
 				ungetc(ch, sourceFile);  // retract
 			}
 			break;
 
 
 		case '(': 
-			token.number = tlparen, 
-			token.value.line = _line, 
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = tlparen;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
 		case ')': 
-			token.number = trparen,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = trparen;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
 		case ',': 
-			token.number = tcomma,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
-				_col++;
+			token.number = tcomma;
+			token.value.line = _line;
+			token.value.col = _col;
+			_col++;
 			break;
 
 		case ';': 
-			token.number = tsemicolon,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = tsemicolon;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
 		case '[': 
-			token.number = tlbracket,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = tlbracket;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
 		case ']': 
-			token.number = trbracket,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = trbracket;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
 		case '{': 
-			token.number = tlbrace,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = tlbrace;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
 		case '}': 
-			token.number = trbrace,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = trbrace;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
 		case ':':
-			token.number = tcol,
-			token.value.line = _line,
-			token.value.col = _col,
-			strcpy_s(token.value.symbol, "("),
+			token.number = tcol;
+			token.value.line = _line;
+			token.value.col = _col;
 			_col++;
 			break;
 
@@ -555,21 +554,19 @@ int hexValue(char ch)
 }
 
 void printToken(struct tokenType token)
-{
-	printf(" | number  |  value  |  line    | coloumn \n");
-	
+{	
 	if (token.number == tident)
-		printf("\t\t\t%d \t%s \t%d  \t%d\n\n", token.number, token.value.id, token.value.line, token.value.col);
+		printf("%d   \t%s \t%d  \t%d\n", token.number, token.value.id, token.value.line, token.value.col);
 	else if (token.number == tnumber)
-		printf("\t\t\t%d \t%d \t%d  \t%d\n\n", token.number, token.value.num, token.value.line, token.value.col);
+		printf("%d   \t%d \t%d  \t%d\n", token.number, token.value.num, token.value.line, token.value.col);
 	else
-		printf("\t\t\t%d \t%s \t%d  \t%d\n\n", token.number, tokenName[token.number], token.value.line, token.value.col);
+		printf("%d   \t%s \t%d  \t%d\n", token.number, tokenName[token.number], token.value.line, token.value.col);
 
 }
 
 void printComment(struct tokenType token)
 {
-		printf("%s \n", token.value.text);
+	printf("%s \n", token.value.text);
 }
 
 /*

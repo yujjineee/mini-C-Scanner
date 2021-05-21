@@ -21,7 +21,8 @@ struct tokenType {
 		char id[ID_LENGTH]; // 문자형 identifier 담음
 		char symbol[ID_LENGTH]; // 기호형 symbol 담음
 		int num;
-		int col, line;
+		int col;
+		int	line;
 		int comment;
 		char text[MAX];
 	} value;

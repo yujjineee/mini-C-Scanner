@@ -40,6 +40,8 @@ void main(int argc, char *argv[])
 	
 	token = scanner();
 	
+	printf("\t\t| num  |  val  |  line | coloumn \n");
+
 	while (token.number != teof) {
 
 		if (token.number == tcomment) {
